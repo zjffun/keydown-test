@@ -10,10 +10,10 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "打坐计时器",
-        "width": 280,
-        "height": 180,
-        "resizable": false,
+        "title": "计时器",
+        "width": 860,
+        "height": 350,
+        "resizable": true,
         "center": true
       }
     ],

@@ -8,42 +8,130 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
   color: #e0e0e0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   height: 100vh;
+  overflow-y: auto;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .container {
+  padding: 16px;
+}
+
+/* Timer */
+.timer-section {
   text-align: center;
-}
-
-.status {
-  font-size: 13px;
-  color: #8892b0;
-  margin-bottom: 10px;
-}
-
-.status.active {
-  color: #64ffda;
+  margin-bottom: 12px;
 }
 
 .timer {
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 200;
   letter-spacing: 2px;
   color: #ccd6f6;
   font-variant-numeric: tabular-nums;
 }
+.timer.active { color: #ffd666; }
+.timer.done   { color: #64ffda; }
+body.timer-done { background: #1a4a2e; }
 
-.timer.active {
-  color: #ffd666;
+/* Region selection bar */
+.region-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
 }
 
-.timer.done {
+#select-region-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid #4a5568;
+  border-radius: 4px;
+  background: #2a2a4a;
+  color: #ccd6f6;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#select-region-btn:hover { background: #3a3a5a; color: #e0e0e0; }
+#select-region-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.region-status {
+  font-size: 12px;
+  color: #6a7490;
+}
+.region-status.ok  { color: #64ffda; }
+.region-status.err { color: #ff6b6b; }
+
+/* Error */
+.error {
+  color: #ff6b6b;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 8px;
+  min-height: 0;
+}
+
+/* Tab list */
+.tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 0;
+}
+
+.tab-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffd666;
+  margin-bottom: 6px;
+}
+
+.tab-img {
+  max-width: 150px;
+  border-radius: 4px;
+  border: 1px solid #3a3a5a;
+}
+
+/* Selection overlay */
+.select-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  cursor: crosshair;
+}
+
+.select-overlay canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.select-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
   color: #64ffda;
+  font-size: 14px;
+  padding: 6px 16px;
+  border-radius: 4px;
+  pointer-events: none;
 }
 
 .version {

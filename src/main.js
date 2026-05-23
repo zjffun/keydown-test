@@ -48,19 +48,14 @@ const errorEl = document.getElementById("error-msg");
 
 function renderTabs() {
   tabListEl.innerHTML = "";
-  tabs.forEach((tab, i) => {
+  tabs.forEach((tab) => {
     const item = document.createElement("div");
     item.className = "tab-item";
-
-    const label = document.createElement("div");
-    label.className = "tab-label";
-    label.textContent = `Tab ${i + 1}`;
 
     const img = document.createElement("img");
     img.className = "tab-img";
     img.src = tab.avatar_image;
 
-    item.appendChild(label);
     item.appendChild(img);
     tabListEl.appendChild(item);
   });
@@ -84,7 +79,6 @@ listen("capture-error", (event) => {
 // ── Region selection ───────────────────────────────────
 
 const selectBtn = document.getElementById("select-region-btn");
-const regionStatus = document.getElementById("region-status");
 const overlay = document.getElementById("select-overlay");
 const canvas = document.getElementById("select-canvas");
 const ctx = canvas.getContext("2d");
@@ -98,16 +92,12 @@ const saved = localStorage.getItem("captureRegion");
 if (saved) {
   try {
     const r = JSON.parse(saved);
-    regionStatus.textContent = `已设置: ${r.w}×${r.h} @ (${r.x}, ${r.y})`;
-    regionStatus.className = "region-status ok";
-    // Send to backend on startup
     invoke("save_region", { region: r }).catch(() => {});
   } catch (_) {}
 }
 
 selectBtn.addEventListener("click", async () => {
   selectBtn.disabled = true;
-  regionStatus.textContent = "截图中…";
 
   try {
     const result = await invoke("take_screenshot");
@@ -115,8 +105,7 @@ selectBtn.addEventListener("click", async () => {
     screenH = result.height;
     await showSelectionOverlay(result.image);
   } catch (e) {
-    regionStatus.textContent = "截图失败: " + e;
-    regionStatus.className = "region-status err";
+    errorEl.textContent = "截图失败: " + e;
   } finally {
     selectBtn.disabled = false;
   }
@@ -192,8 +181,7 @@ function showSelectionOverlay(dataUrl) {
 
         if (w < 10 || h < 10) {
           overlay.style.display = "none";
-          regionStatus.textContent = "选区太小，请重新框选";
-          regionStatus.className = "region-status err";
+          errorEl.textContent = "选区太小，请重新框选";
           resolve();
           return;
         }
@@ -226,12 +214,9 @@ function showSelectionOverlay(dataUrl) {
         invoke("save_region", { region })
           .then(() => {
             localStorage.setItem("captureRegion", JSON.stringify(region));
-            regionStatus.textContent = `已设置: ${region.w}×${region.h} @ (${region.x}, ${region.y})`;
-            regionStatus.className = "region-status ok";
           })
           .catch((err) => {
-            regionStatus.textContent = "保存失败: " + err;
-            regionStatus.className = "region-status err";
+            errorEl.textContent = "保存失败: " + err;
           });
 
         resolve();

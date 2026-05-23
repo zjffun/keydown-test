@@ -3,7 +3,7 @@ use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::Emitter;
+use tauri::{Emitter, Manager, PhysicalPosition};
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -229,6 +229,18 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![take_screenshot, save_region, crop_screen])
         .setup(|app| {
+            if let Some(win) = app.get_webview_window("main") {
+                if let Ok(Some(monitor)) = win.primary_monitor() {
+                    let m_size = monitor.size();
+                    let m_pos = monitor.position();
+                    if let Ok(w_size) = win.outer_size() {
+                        let x = m_pos.x + m_size.width as i32 - w_size.width as i32;
+                        let y = m_pos.y;
+                        let _ = win.set_position(PhysicalPosition::new(x, y));
+                    }
+                }
+            }
+
             let handle = app.handle().clone();
             #[cfg(target_os = "windows")]
             {

@@ -11,10 +11,9 @@
     "windows": [
       {
         "title": "计时器",
-        "width": 860,
-        "height": 350,
-        "resizable": true,
-        "center": true
+        "width": 1024,
+        "height": 150,
+        "resizable": true
       }
     ],
     "security": {

@@ -33,7 +33,7 @@ function startCountdown() {
   }, 1000);
 }
 
-listen("f6-pressed", () => {
+listen("listen-key-pressed", () => {
   startCountdown();
 });
 
@@ -97,6 +97,7 @@ if (saved) {
 }
 
 selectBtn.addEventListener("click", async () => {
+  closeSettings();
   selectBtn.disabled = true;
 
   try {
@@ -246,3 +247,53 @@ function showSelectionOverlay(dataUrl) {
     img.src = dataUrl;
   });
 }
+
+// ── Listen key config (F1–F9) ──────────────────────────
+
+const listenKeySelect = document.getElementById("listen-key-select");
+
+function applyListenKey(key) {
+  invoke("set_listen_key", { key }).catch((e) => {
+    errorEl.textContent = "设置监听按键失败: " + e;
+  });
+}
+
+// Restore saved listen key (default F4)
+const savedKey = parseInt(localStorage.getItem("listenKey"), 10);
+const listenKey = savedKey >= 1 && savedKey <= 9 ? savedKey : 4;
+listenKeySelect.value = String(listenKey);
+applyListenKey(listenKey);
+
+listenKeySelect.addEventListener("change", () => {
+  const key = parseInt(listenKeySelect.value, 10);
+  localStorage.setItem("listenKey", String(key));
+  applyListenKey(key);
+});
+
+// ── Settings panel ─────────────────────────────────────
+
+const settingsBtn = document.getElementById("settings-btn");
+const settingsOverlay = document.getElementById("settings-overlay");
+const settingsClose = document.getElementById("settings-close");
+
+function openSettings() {
+  settingsOverlay.style.display = "flex";
+}
+
+function closeSettings() {
+  settingsOverlay.style.display = "none";
+}
+
+settingsBtn.addEventListener("click", openSettings);
+settingsClose.addEventListener("click", closeSettings);
+
+// Click on the dimmed backdrop (but not the panel) closes the panel.
+settingsOverlay.addEventListener("click", (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && settingsOverlay.style.display !== "none") {
+    closeSettings();
+  }
+});

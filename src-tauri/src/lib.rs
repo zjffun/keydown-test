@@ -1,9 +1,16 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use tauri::{Emitter, Manager, PhysicalPosition};
+
+// ── Shared state ─────────────────────────────────────────────────────
+
+/// True while a capture is in flight (prevents overlapping captures).
+static CAPTURING: AtomicBool = AtomicBool::new(false);
+
+/// Currently configured listen key as an F-number (1–9). Defaults to F4.
+static LISTEN_KEY: AtomicU8 = AtomicU8::new(4);
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -114,37 +121,86 @@ fn capture_full_screen() -> Result<RgbaImage, String> {
         .map_err(|e| format!("截屏失败: {}", e))
 }
 
-// ── F6 key listener (Windows: polling, macOS: global shortcut) ──────
+// ── Listen key (Windows: polling, macOS: global shortcut) ───────────
 
+/// Emit the press event and kick off a capture (skipped if one is in flight).
+fn run_capture(handle: tauri::AppHandle) {
+    let _ = handle.emit("listen-key-pressed", ());
+
+    // swap returns the previous value; bail if a capture is already running.
+    if CAPTURING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    std::thread::spawn(move || {
+        match capture_crop_impl() {
+            Ok(cap) => { let _ = handle.emit("tab-captured", cap); }
+            Err(e) => { let _ = handle.emit("capture-error", CaptureError { message: e }); }
+        }
+        CAPTURING.store(false, Ordering::SeqCst);
+    });
+}
+
+/// Map an F-number (1–9) to its Windows virtual-key code (VK_F1 = 0x70).
 #[cfg(target_os = "windows")]
-fn start_f6_listener(handle: tauri::AppHandle, capturing: Arc<AtomicBool>) {
+fn vk_for_fkey(n: u8) -> i32 {
+    0x70 + (n.clamp(1, 9) as i32 - 1)
+}
+
+/// Map an F-number (1–9) to the global-shortcut key code (macOS/Linux).
+#[cfg(not(target_os = "windows"))]
+fn code_for_fkey(n: u8) -> Option<tauri_plugin_global_shortcut::Code> {
+    use tauri_plugin_global_shortcut::Code;
+    Some(match n {
+        1 => Code::F1,
+        2 => Code::F2,
+        3 => Code::F3,
+        4 => Code::F4,
+        5 => Code::F5,
+        6 => Code::F6,
+        7 => Code::F7,
+        8 => Code::F8,
+        9 => Code::F9,
+        _ => return None,
+    })
+}
+
+/// Poll the configured key on Windows; LISTEN_KEY is re-read each tick so
+/// config changes take effect live.
+#[cfg(target_os = "windows")]
+fn start_key_listener(handle: tauri::AppHandle) {
     std::thread::spawn(move || {
         let mut was_pressed = false;
         loop {
-            let state = unsafe { winapi::um::winuser::GetAsyncKeyState(0x75) }; // VK_F6
+            let vk = vk_for_fkey(LISTEN_KEY.load(Ordering::SeqCst));
+            let state = unsafe { winapi::um::winuser::GetAsyncKeyState(vk) };
             let is_pressed = (state & (1i16 << 15)) != 0;
 
             if is_pressed && !was_pressed {
-                let _ = handle.emit("f6-pressed", ());
-
-                if !capturing.load(Ordering::SeqCst) {
-                    let h = handle.clone();
-                    let flag = Arc::clone(&capturing);
-                    flag.store(true, Ordering::SeqCst);
-
-                    std::thread::spawn(move || {
-                        match capture_crop_impl() {
-                            Ok(cap) => { let _ = h.emit("tab-captured", cap); }
-                            Err(e) => { let _ = h.emit("capture-error", CaptureError { message: e }); }
-                        }
-                        flag.store(false, Ordering::SeqCst);
-                    });
-                }
+                run_capture(handle.clone());
             }
             was_pressed = is_pressed;
             std::thread::sleep(std::time::Duration::from_millis(15));
         }
     });
+}
+
+/// Register the global shortcut for the given F-number (macOS/Linux).
+#[cfg(not(target_os = "windows"))]
+fn register_listen_shortcut(handle: &tauri::AppHandle, n: u8) -> Result<(), String> {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+
+    let code = code_for_fkey(n).ok_or("无效的按键")?;
+    let shortcut = Shortcut::new(None, code);
+    let h = handle.clone();
+    handle
+        .global_shortcut()
+        .on_shortcut(shortcut, move |_app, _shortcut, event| {
+            if event.state == ShortcutState::Pressed {
+                run_capture(h.clone());
+            }
+        })
+        .map_err(|e| e.to_string())
 }
 
 
@@ -181,6 +237,29 @@ fn save_region(region: CropRegion) -> Result<(), String> {
     Ok(())
 }
 
+/// Set which F-key (1–9) triggers a capture; re-registers the shortcut live.
+#[tauri::command]
+#[cfg_attr(target_os = "windows", allow(unused_variables))]
+fn set_listen_key(app: tauri::AppHandle, key: u8) -> Result<(), String> {
+    if !(1..=9).contains(&key) {
+        return Err("无效的按键，仅支持 F1–F9".into());
+    }
+
+    let old = LISTEN_KEY.swap(key, Ordering::SeqCst);
+
+    // Windows reads LISTEN_KEY in its polling loop, so nothing else to do there.
+    #[cfg(not(target_os = "windows"))]
+    if old != key {
+        use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
+        if let Some(code) = code_for_fkey(old) {
+            let _ = app.global_shortcut().unregister(Shortcut::new(None, code));
+        }
+        register_listen_shortcut(&app, key)?;
+    }
+
+    Ok(())
+}
+
 /// Crop the saved region from a fresh screenshot and return base64.
 #[tauri::command]
 fn crop_screen() -> Result<CropResult, String> {
@@ -204,7 +283,7 @@ fn crop_screen() -> Result<CropResult, String> {
     Ok(CropResult { image })
 }
 
-/// Used by F6 to capture with saved region.
+/// Used by the listen key to capture with the saved region.
 fn capture_crop_impl() -> Result<TabCapture, String> {
     let result = crop_screen()?;
     Ok(TabCapture { avatar_image: result.image })
@@ -227,7 +306,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![take_screenshot, save_region, crop_screen])
+        .invoke_handler(tauri::generate_handler![
+            take_screenshot,
+            save_region,
+            crop_screen,
+            set_listen_key
+        ])
         .setup(|app| {
             if let Some(win) = app.get_webview_window("main") {
                 if let Ok(Some(monitor)) = win.primary_monitor() {
@@ -243,37 +327,10 @@ pub fn run() {
 
             let handle = app.handle().clone();
             #[cfg(target_os = "windows")]
-            {
-                let capturing = Arc::new(AtomicBool::new(false));
-                start_f6_listener(handle, capturing);
-            }
+            start_key_listener(handle);
             #[cfg(not(target_os = "windows"))]
-            {
-                use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut};
+            register_listen_shortcut(&handle, LISTEN_KEY.load(Ordering::SeqCst))?;
 
-                let shortcut = Shortcut::new(None, Code::F6);
-                let capturing = Arc::new(AtomicBool::new(false));
-
-                app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        let _ = handle.emit("f6-pressed", ());
-
-                        if !capturing.load(Ordering::SeqCst) {
-                            let h = handle.clone();
-                            let flag = Arc::clone(&capturing);
-                            flag.store(true, Ordering::SeqCst);
-
-                            std::thread::spawn(move || {
-                                match capture_crop_impl() {
-                                    Ok(cap) => { let _ = h.emit("tab-captured", cap); }
-                                    Err(e) => { let _ = h.emit("capture-error", CaptureError { message: e }); }
-                                }
-                                flag.store(false, Ordering::SeqCst);
-                            });
-                        }
-                    }
-                }).map_err(|e| e.to_string())?;
-            }
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -15,7 +15,7 @@ body {
 }
 
 .container {
-  padding: 4px 12px 12px;
+  padding: 10px 14px 12px;
   display: flex;
   align-items: stretch;
   gap: 16px;
@@ -32,62 +32,24 @@ body {
 }
 
 .right-area {
-  flex: 0 0 140px;
+  flex: 0 0 130px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 /* Timer */
-.timer-section {
-  text-align: right;
-}
-
 .timer {
-  font-size: 36px;
+  font-size: 40px;
   font-weight: 200;
   letter-spacing: 2px;
   color: #ccd6f6;
   font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease;
 }
 .timer.active { color: #ffd666; }
 .timer.done   { color: #64ffda; }
 body.timer-done { background: #1a4a2e; }
-
-/* Region selection bar */
-.region-bar {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.region-status {
-  text-align: right;
-  white-space: nowrap;
-}
-
-#select-region-btn {
-  padding: 6px 14px;
-  font-size: 13px;
-  border: 1px solid #4a5568;
-  border-radius: 4px;
-  background: #2a2a4a;
-  color: #ccd6f6;
-  cursor: pointer;
-  white-space: nowrap;
-}
-#select-region-btn:hover { background: #3a3a5a; color: #e0e0e0; }
-#select-region-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.region-status {
-  font-size: 12px;
-  color: #6a7490;
-}
-.region-status.ok  { color: #64ffda; }
-.region-status.err { color: #ff6b6b; }
 
 /* Error */
 .error {
@@ -126,7 +88,146 @@ body.timer-done { background: #1a4a2e; }
   border: 1px solid #3a3a5a;
 }
 
-/* Selection overlay */
+/* Settings button (gear) */
+.settings-btn {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  z-index: 100;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccd6f6;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.2s ease;
+}
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #64ffda;
+  transform: rotate(35deg);
+}
+
+/* Settings overlay + panel */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 14, 30, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.settings-panel {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  background: #1c2138;
+  border: 1px solid #2f3556;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  padding: 12px 16px 14px;
+  animation: settings-in 0.16s ease-out;
+}
+
+@keyframes settings-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.settings-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ccd6f6;
+}
+.settings-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6a7490;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.settings-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e0e0e0;
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px;
+  padding-top: 4px;
+}
+.settings-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.settings-label {
+  font-size: 12px;
+  color: #9aa4c0;
+}
+
+.settings-item select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  background: #2a2a4a;
+  color: #ccd6f6;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.settings-item select:focus {
+  outline: none;
+  border-color: #64ffda;
+}
+
+#select-region-btn {
+  width: 100%;
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid #4a5568;
+  border-radius: 6px;
+  background: #2a2a4a;
+  color: #ccd6f6;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+#select-region-btn:hover {
+  background: #3a3a5a;
+  color: #e0e0e0;
+  border-color: #64ffda;
+}
+#select-region-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Region selection overlay */
 .select-overlay {
   position: fixed;
   inset: 0;
